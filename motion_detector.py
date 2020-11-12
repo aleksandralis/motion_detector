@@ -3,11 +3,14 @@ import numpy as np
 
 # TODO LIST
 """ 
-6. Do not process every frame, you can take a snapshot every 0.5s or even 1s
-7. You can replace many of opencv ops with pure numpy ops (imho they are cleaner and more intuitive to use), e.g.
+1. Do not process every frame, you can take a snapshot every 0.5s or even 1s
+2. You can replace many of opencv ops with pure numpy ops (imho they are cleaner and more intuitive to use), e.g.
 		frameDelta = cv2.absdiff(res1, gray) -> frameDelta = np.abs(res1 - gray)
-9. accumulatedWeighted can be easily replaced with simple average of circular buffer - it would be easier to control
+3. accumulatedWeighted can be easily replaced with simple average of circular buffer - it would be easier to control
 	number of elements in it and so the overall time span of lookup window
+4. Try with real use case, right now sitting and moving in front of computer, taking most of its area is not the best example. In real case we can
+capture not every frame, but every nth frame which could cause a greater accuracy and stability. 
+5. Guessing movement direction with based on bounding boxes size growing/decreasing
 """
 
 
@@ -45,7 +48,8 @@ def combine_imgs(img_text_pairs):
 def run(video_capture, width, height, blur_kernel, accumulation_weight, low_thresh, high_thresh, dilation_kernel,
         min_area):
     first_run = True
-
+    old_sizes = np.zeros(20)
+    size_update_index = 0
     while True:
         ret, frame = video_capture.read()
         if not ret:
@@ -67,12 +71,15 @@ def run(video_capture, width, height, blur_kernel, accumulation_weight, low_thre
         frame_delta = cv2.absdiff(scaled_abs, gray_blurred)
         binary_img = cv2.threshold(frame_delta, low_thresh, high_thresh, cv2.THRESH_BINARY)[1]
         dilated_img = cv2.dilate(binary_img, (dilation_kernel, dilation_kernel), iterations=4)
+        closed_img  = cv2.morphologyEx(dilated_img, cv2.MORPH_CLOSE, (dilation_kernel, dilation_kernel))
 
-        contours, _ = cv2.findContours(dilated_img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(closed_img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
         for c in contours:
             # if the contour is too small, ignore it
             if cv2.contourArea(c) < min_area:
                 continue
+
             x, y, w, h = cv2.boundingRect(c)
 
             # draw bounding box
@@ -82,7 +89,7 @@ def run(video_capture, width, height, blur_kernel, accumulation_weight, low_thre
         output_img = combine_imgs([
             (frame, 'out'),
             (frame_delta, 'frame delta'),
-            (dilated_img, 'dilated'),
+            (binary_img, 'binary'),
         ])
         cv2.imshow("debug", output_img)
         cv2.waitKey(30)
@@ -90,14 +97,14 @@ def run(video_capture, width, height, blur_kernel, accumulation_weight, low_thre
 
 if __name__ == '__main__':
     # PARAMS
-    MIN_AREA = 2000
+    MIN_AREA = 5000
     WIDTH = 500
     HEIGHT = 375
-    BLUR_KERNEL = 21
-    ACCUMULATION_WEIGHT = 0.06
-    LOW_THRESH = 25
+    BLUR_KERNEL = 5
+    ACCUMULATION_WEIGHT = 0.2
+    LOW_THRESH = 30
     HIGH_THRESH = 255
-    DILATION_KERNEL = 50
+    DILATION_KERNEL = 10
 
     # initialization
     video_capture = cv2.VideoCapture(0)  # 0 for default camera
