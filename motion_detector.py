@@ -23,14 +23,11 @@ def engrave_prediction(img, is_occupied):
 def combine_imgs(img_text_pairs):
     WHITE = (255, 255, 255)
 
-    num_imgs = len(img_text_pairs)
     single_h, single_w = img_text_pairs[0][0].shape[0], img_text_pairs[0][0].shape[1]
-    # stack images horizontally
-    imgs = []
 
+    imgs = []
     for i, pair in enumerate(img_text_pairs):
         temp_img = np.copy(pair[0])
-        print('bef', temp_img.shape)
         # if gray image without channels dimension
         if temp_img.ndim < 3:
             temp_img = np.stack([temp_img] * 3, axis=-1)
@@ -94,9 +91,6 @@ def run(video_capture, width, height, blur_kernel, accumulation_weight, low_thre
 if __name__ == '__main__':
     # PARAMS
     MIN_AREA = 2000
-    OUTPUT_FILE = 'output_file.mp4'
-    CODEC = 'MP4V'
-    FPS = 10
     WIDTH = 500
     HEIGHT = 375
     BLUR_KERNEL = 21
@@ -107,12 +101,6 @@ if __name__ == '__main__':
 
     # initialization
     video_capture = cv2.VideoCapture(0)  # 0 for default camera
-    video_writer = cv2.VideoWriter(
-        OUTPUT_FILE,
-        cv2.VideoWriter_fourcc(*CODEC),
-        FPS,
-        (WIDTH, HEIGHT)
-    )
 
     # main loop
     run(video_capture, WIDTH, HEIGHT, BLUR_KERNEL, ACCUMULATION_WEIGHT, LOW_THRESH, HIGH_THRESH,
@@ -121,4 +109,3 @@ if __name__ == '__main__':
     # release resources
     cv2.destroyAllWindows()
     video_capture.release()
-    video_writer.release()
