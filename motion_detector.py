@@ -12,6 +12,12 @@ import numpy as np
 capture not every frame, but every nth frame which could cause a greater accuracy and stability. 
 5. Guessing movement direction with based on bounding boxes size growing/decreasing
 """
+# TODO after watching with test movie:
+""" 
+1. Trigerrung every n second not all the time
+2. Add ROI in front of camera
+3. Playing with min area and alpha parameters
+"""
 
 
 def engrave_prediction(img, is_occupied):
@@ -72,24 +78,27 @@ def run(video_capture, width, height, blur_kernel, accumulation_weight, low_thre
         binary_img = cv2.threshold(frame_delta, low_thresh, high_thresh, cv2.THRESH_BINARY)[1]
         dilated_img = cv2.dilate(binary_img, (dilation_kernel, dilation_kernel), iterations=4)
         closed_img  = cv2.morphologyEx(dilated_img, cv2.MORPH_CLOSE, (dilation_kernel, dilation_kernel))
-
+        print(closed_img.shape)
         contours, _ = cv2.findContours(closed_img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+        valid_contours = []
         for c in contours:
             # if the contour is too small, ignore it
             if cv2.contourArea(c) < min_area:
+                print(cv2.contourArea(c))
                 continue
-
+            valid_contours.append(c)
             x, y, w, h = cv2.boundingRect(c)
 
             # draw bounding box
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-        frame = engrave_prediction(frame, is_occupied=len(contours) > 0)
+        frame = engrave_prediction(frame, is_occupied=len(valid_contours) > 0)
         output_img = combine_imgs([
             (frame, 'out'),
             (frame_delta, 'frame delta'),
             (binary_img, 'binary'),
+            (closed_img, "morph")
         ])
         cv2.imshow("debug", output_img)
         cv2.waitKey(30)
@@ -97,17 +106,18 @@ def run(video_capture, width, height, blur_kernel, accumulation_weight, low_thre
 
 if __name__ == '__main__':
     # PARAMS
-    MIN_AREA = 5000
+    MIN_AREA = 2000
     WIDTH = 500
     HEIGHT = 375
     BLUR_KERNEL = 5
-    ACCUMULATION_WEIGHT = 0.2
+    ACCUMULATION_WEIGHT = 0.01
     LOW_THRESH = 30
     HIGH_THRESH = 255
     DILATION_KERNEL = 10
+    MOVIE_PATH = "/media/ola/Data/20201113_105812.mp4"
 
     # initialization
-    video_capture = cv2.VideoCapture(0)  # 0 for default camera
+    video_capture = cv2.VideoCapture(MOVIE_PATH)  # 0 for default camera
 
     # main loop
     run(video_capture, WIDTH, HEIGHT, BLUR_KERNEL, ACCUMULATION_WEIGHT, LOW_THRESH, HIGH_THRESH,
